@@ -1,0 +1,9 @@
+m = data.frame(matrix(c(68, 119, 26, 7, 15, 54, 14, 10, 5, 29, 14, 16, 20, 84, 17, 94), ncol=4))
+names(m) = c("brun", "chatain", "roux", "blond")
+row.names(m) = c("marron", "noisette", "vert", "bleu")
+chisq.test(m)
+m.coa = dudi.coa(m, scannf=FALSE, nf=2)
+scatter(m.coa)
+
+chisq.test(m)$residuals
+

@@ -1,0 +1,97 @@
+---
+title: "Detection de TE"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Détection de transfert horizontal d'élément transposable
+
+Exon 3: ca correspond au exon 2 sur la figure
+
+## 1. Creation d'une phylogenie des TE pour chacune des especes
+
+-   Accession numbers de `P-element`: AC X06779; V01520; X69493;
+
+-   Position de l'exon 2: 1222..1947;\
+    Le 1er CDS ne commence pas à la position 1 car la sequence de l'element est tirée par un vecteur artificiel construit en laboratoire.\
+    Dans le page du `NCBI` le P-element est situé dans la sequence du vecteur à partir duquel a été sequencé, le P-element se trouve aux positions 996-3902, ainsi pour retrouver les position de notre exon il faut faire:\
+    $996+1222=2217$ et $996+1947=2942$\
+    Donc l'exon sera entre la position 2217 et 2942.
+
+Le fichier `seq.fasta` contient les sequences pour l'exon d'interet pour differents espèces.
+
+<!--Arbre phy depuis flybase (sur polycopie)-->
+
+Dans la phylogenie des especes, *Dmel* et *Dwil* sont relativement distantes alors que c'est pas du tout le cas dans la phylogenie des sequence, cela suggere un evenement de transfert horizontal entre ces deux especes pour l'element P.
+
+## 2. Analyse de l'usage du code
+
+*Quel est le résultat attendu sous l'hypothèse de transfert horizontal?*
+
+Usage du code similaire pour des genes issues d'un HT recent.
+
+```{r}
+library(seqinr)
+library(ade4)
+```
+
+```{r}
+tablecode()
+```
+
+```{r}
+seqP <- read.fasta("./data/seq.fasta")
+names(seqP)
+```
+
+```{r}
+calc <- function(x) {
+  return(as.vector(uco(x)))
+}
+
+tabuco <- function(x) {
+  return (data.frame(lapply(x,calc), row.names=SEQINR.UTIL$CODON.AA$CODON))
+  }
+```
+
+```{r}
+tabuco.P <- tabuco(seqP)
+tabuco.P
+```
+
+```{r}
+P.coa <- dudi.coa(tabuco.P)
+scatter(P.coa, clab.col=1, clab.row=0)
+```
+
+```{r}
+seqADH <- read.fasta("./data/TP_HT-ET/adh.txt")
+tabuco.ADH <- tabuco(seqADH)
+ADH.coa <- dudi.coa(tabuco.ADH)
+scatter(ADH.coa, clab.col=1, clab.row=0)
+```
+
+Gene present dans toutes les familles, on represente que de maniere generale toutes ces especes sont assez eloignees.
+
+```{r}
+seqTE <- read.fasta("./data/TP_HT-ET/seqET.txt")
+tabuco.TE <- tabuco(seqTE)
+TE.coa <- dudi.coa(tabuco.TE)
+scatter(TE.coa, clab.col=1, clab.row=0)
+```
+
+```{r}
+tabuco.total <- cbind(tabuco.P, tabuco.ADH, tabuco.TE)
+total.coa <- dudi.coa(tabuco.total)
+plot(total.coa$co,type="n")
+points(total.coa$co[1:6,],pch=20)
+ ## P
+points(total.coa$co[7:11,],pch=21,col="blue")
+ ## adh
+points(total.coa$co[12:25,],pch=22,col="red")
+ ## ET
+legend("topright",c("P","adh","ET"),col=c("black","blue","red"),pch=c(20,21,22))
+```

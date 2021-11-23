@@ -1,0 +1,59 @@
+---
+title: "Interactions durables, transferts horizontaux et domestication"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+adresse IP: <https://134.158.247.32/>\
+login: gge10\
+mdp: VMlbbe
+
+# Interactions durables, transferts horizontaux et domestication
+
+Chez cette espece de guepe, selon le phenotype, les individus femelles on un comportament different dans le depot d'oeufs dans les larves de la *Drosophila*. Le phenotype **NS** pond un seul oeuf alors que le phenotype **S** pond plusieurs oeufs au sein d'une seule larve.\
+Ce phenotype est transmis uniquement par via maternelle, comme si c'etait du au genome mitochondriale. L'hypothese de la transmission mitochondriale du caractere est tombée à l'eau assez vite.
+
+Cependant, des guepes de la ligne **NS** peuvent acquisir le caractere de super-parasitisme en eridant du materiel genetique a partir de l'autre lignée. Cela peut etre du à un HT ou une infection virale qui manipule le comportement de la femelle. Dans le cas du virus, le super-paritisme favorise la transmission de ce virus (strategie invasive). Finalement, le virus sera transmis de maniere verticale, car ce comportament est observée aussi dans la descendence du nouveau individu infecté (malgre ca son taux de succes de transmission n'est pas de 100%, cela permet donc une petite generation de femelle **NS**, permettant la survie de ce phenotype).
+
+Dans le TP on analysera les sequences de plusieurs parasitoides de la *Drosophila*. Les données sont un draft de la guepe sans les sequences du virus.
+
+-   LbVF: sigle du virus
+
+On fait un `tblastn` du genome de LbVF sur le draft de Lb, car les sequences proteiques evoulent moins vite que les sequences nucleotides et, cela nous permet de detecter des homologues beaucoup plus anciens. Le resultat donne des hits avec des longueurs en paires de bases (en minuscule les regions de faible complexité).
+
+-   **ORF27**: e-() extremement faible, identité de 43% (similarité 58%), la proteine entiere à l'air de se aligner sur la longueur totale de sa sequence. Homologue candidat.
+
+-   **ORF85**: e-() faible, identité 36% (similarité 54%), longueur de l'alignement faisant la taille de la proteine. Candidat homologue.
+
+Ces deux hits suggerent une histoire evolutive commune au virus et la guepe, qui pourrait etre due un HT, du virus a la guepe ou l'inverse (on a pas assez d'information pour l'instant pour reinseigner sur le sens du transfert). Une bonne idee ca pourrait etre de regarder chez des especes de guepe voisines.\
+On effectue ensuite un blatp sur une base de données.
+
+## Resultats des `blast` sur la base de données
+
+En faisant un blast du ORF27 on retombe sur beaucoup d'especes d'insecte mais aucune espece virale. Cela suggere que l'ORF27 appartanait a la base a la guepe et qu'au cours de l'evolution est passe vers le genome du virus par transfert horizontal. On remarque aussi que le HT est plutot ancien, car le dernier ancetre communt a la sequence virale avec les especes de depart est plutot vers la racine de la phylogenie (et non vers les feuilles).\
+Depuis les resultats globaux du blast, la proteine pourrait avoir une fonction inhibitrice de l'apoptose.\
+On peut immaginer que le gene est conserve dans le virus pour empecher la morte de la cellule infectee (etant l'apoptose entre les premiers etapes de defense du systeme immunitaire).
+
+Sur la phylogenie de ORF85 on retrouve uniquement de sequences virales (clade mono-phyletiques pour les 3 especes de guepe), cela suggere un HT dans l'autre sens (du virus vers la guepe). L'ORF85 appartient de maniere ancestrale au virus et a ete transmis juste avant la divergence des tois especes (Lb, Lc et Lh).\
+On retrouve egalement d'autres especes d'insectes qui se traduit par un autre HT vers un autre clade de guepes (evenement independant par rapport a l'autre HT).
+
+8 genes sur 13 ont ete retrouve sur le meme scaffold de *Lb*, cela fait penser que ces genes ont ete acquis pendant un meme evenement evolutif.
+
+## Contribution de ces 13 genes a la fitness des guepes
+
+-   distance synonyme (dS): nombre de differences sur les sites synonymes (une mutation n'entraine pas une changement d'acide aminé);
+
+-   distance non-synonyme (dN): mutation entrainant un changement dans la sequence des aminoacides.
+
+On s'attend d'avoir un rapport dS/dN=1 dans le cas d'une divergence **neutre**. Si le role de la proteine est importante, elle sera conservée et on aura donc un dS/dN \< 1 (selection **stabilisante**). Si dS/dN \> 1, selection **diversifiante**.
+
+On calcule le dN/dS sur les trois especes de guepe pour estimer l'importance de l'integration du contenu viral.
+
+-   *Nous avons calculé la valeur de dN/dS pour 808 gènes présents chez tous les eucaryotes. Quel est votre attendu pour sa valeur et pourquoi?\
+    *On s'attend d'avoir un dS/dN\<1 car il s'agit des sequences conservées qui sont importantes pour le fonctionnement physiologique.
+
+Dans nos especes, le gene viral parait avoir une fonction biologique qui est conservée depuis l'endogenisation (dS/dN\<1).\
+Le gene a ete doemstique pour contourner le systeme immunitaire de la larve hote.
