@@ -1,6 +1,6 @@
 ---
 title: "Detection de TE"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -57,17 +57,17 @@ tabuco <- function(x) {
   }
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 tabuco.P <- tabuco(seqP)
 tabuco.P
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 P.coa <- dudi.coa(tabuco.P)
 scatter(P.coa, clab.col=1, clab.row=0)
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 seqADH <- read.fasta("./data/TP_HT-ET/adh.txt")
 tabuco.ADH <- tabuco(seqADH)
 ADH.coa <- dudi.coa(tabuco.ADH)
@@ -76,14 +76,14 @@ scatter(ADH.coa, clab.col=1, clab.row=0)
 
 Gene present dans toutes les familles, on represente que de maniere generale toutes ces especes sont assez eloignees.
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 seqTE <- read.fasta("./data/TP_HT-ET/seqET.txt")
 tabuco.TE <- tabuco(seqTE)
 TE.coa <- dudi.coa(tabuco.TE)
 scatter(TE.coa, clab.col=1, clab.row=0)
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 tabuco.total <- cbind(tabuco.P, tabuco.ADH, tabuco.TE)
 total.coa <- dudi.coa(tabuco.total)
 plot(total.coa$co,type="n")

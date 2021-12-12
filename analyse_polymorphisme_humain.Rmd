@@ -1,0 +1,229 @@
+---
+title: "Analyse du polymorphisme humain: structuration et détéction de sélection"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+`chr2_subset.vcf` 100 000 marqueurs
+
+Filtrage de ce fichier `vcf`:
+
+```{bash eval=FALSE, include=FALSE}
+bcftools view --force-samples --types snps -m2 -M2 -f PASS -S sample_names_unrelated2.txt --min-af 0.01:minor chr2_subset.vcf | bcftools norm --remove-duplicates  | bcftools +prune -l 0.4 -o chr2_subset2.vcf
+```
+
+-   `-S`: permet de passer un fichier avec les identifiants des individus, lesquels sont non-apparentés pour pouvoir identifier de la structure dû à un noyau correspondant à une famille par exemple;
+
+-   `--min-af`: frequence allélique minimale (on peut indiquer l'allèle majeur ou mineur):
+
+    -   pour enlever les erreurs de sequencage;
+
+    -   peu d'information apportée par les variants rares sur la structuration de la population;
+
+-   `--remove-duplicates`: on garde des *loci* uniques;
+
+-   `+prune`: pour filtrer en fonction du desequilibre de liaison et enlever des *loci* qui apportent de l'information redondante:
+
+    -   `-l`: on enleve un site pour deux des SNPs ayant une deséquilibre de liaison particulièrement intense (autrement dit on enlève les SNPs ayant une forte correlation entre eux). Cela permet de prendre des *loci* de manière à enlever l'information redondante.
+
+`|`: Les données sont phasés;\
+`/`: Les données ne sont pas phasés.
+
+On garde que les SNPs bi-alleliques, car plus adaptés pour les calcules de $f_{st}$ et autres statistiques.
+
+## **1. Analyse de la structuration des populations**
+
+```{r eval=FALSE, include=FALSE}
+library(vcfR)
+library(adegenet)
+
+# read vcf
+vcf=read.vcfR("chr2_subset2.vcf")
+# convert to genlight object
+my_genlight <- vcfR2genlight(vcf)
+
+pop=read.table("igsr_samples.tsv",h=T,sep="\t")  # information sur la population (origine geographique)
+head(pop)
+
+# on construit une table avec les informations des echantillons
+fam1=pop[match(my_genlight@ind.names, pop$Sample.name),]
+dim(fam1)
+
+fam1$Population.code=factor(as.character(fam1$Population.code))
+fam1$Superpopulation.code=factor(as.character(fam1$Superpopulation.code))
+
+# ajout de l'information de la population sur l'objet genlight
+my_genlight$pop=fam1$Population.code
+```
+
+L'`ACP` prend en entrée une matrice de `n` indivdus (lignes) et `m` *loci* (colonnes). La valeur de la cellule `[n]` `[m]` décrit le genotype de l'indivdu pour le *locus* donné. Ceci nous permettrait de visualiser facilement le jeu de données. Pour faire cela on projecte les points sur un plan dulequel les axes maximisent la variance de ces points.
+
+```{r eval=FALSE, include=FALSE}
+# PCA
+pca1=glPca(my_genlight[,], nf = 2, parallel=TRUE, loadings = FALSE, n.cores = 16)
+# nf = 2, on garde uniquement les 2 premiers axes
+head(pca1$scores)
+
+library(RColorBrewer)
+
+plot(pca1$scores, xlim=c(-8, 13),type="n")
+cols=fam1$Superpopulation.code
+levels(cols)=brewer.pal(n = nlevels(fam1$Superpopulation.code), name = "Accent")
+points(pca1$scores, pch=as.numeric(fam1$Population.code)-1, col=as.character(cols))
+legend("topleft", levels(fam1$Population.code), pch=0:26,cex=0.9)
+legend("topright", levels(fam1$Superpopulation.code), col=levels(cols), pch=16)
+```
+
+Chaque point decrit un individu. On voit clairement que les individu sont generalement separés par leurs continent d'origine, à exception de l'Amerique.
+
+-   *Quelle part de la variance est expliquée par les deux premiers axes ?*
+
+    ```{r eval=FALSE, include=FALSE}
+    pca1$eig[1:2]/sum(pca1$eig)
+    # [1] 0.077 0.057
+    ```
+
+    L'ACP permet donc de represent environ 7+5=12% de la variance. Donc les différents populations partagent la meme variabilité, parmi les *loci* analysés il y en a que le 12% qui permettent de distinguer les populations d'un point de vue génétique.\
+    Autrement dit, les populations partagent le polymorphisme.\
+    L'Amerique paraît etre un melange de populations, notament les natifs d'Amerique sont plus proche de l'Est-Asiatique (colonisation du continent americain à partir de l'étroit de Bering). Notament remarque aussi la colonisation européenne et les brassages provoqués par les esclavages des africaines au 15eme siecle.
+
+-   *Calculer l'heterozygotie théorique moyenne par population et interprétez.*
+
+    ```{r eval=FALSE, include=FALSE}
+    diversity <- genetic_diff(vcf, pops = fam1$Population.code, method = 'nei')
+    head(diversity)
+    Hs_bar=apply(X = diversity[, grep(pattern = "Hs_", x = names(diversity))], 2, mean)
+    barplot(sort(Hs_bar), las=3)
+    ```
+
+    Les trois derniers populations sur l'histogramme sont celles qui ont l'hétérozigotie la plus elevée. Il s'agit de trois populations africaines, cela est attendu car toutes les populations actuelles dérivent d'une population africaine et donc elles sont celles qui ont eu le plus de temps a disposition pour se diversifier. On retrouve aussi un groupe d'afroamericains, lesquels ont une forte diversication grâce à leurs mixture.
+
+## **2. Analyse de la différentiation entre une population européenne CEU et une population asiatique JPT sur le chromosome 2**
+
+```{r eval=FALSE, include=FALSE}
+ID_EUROPE=fam1[which(fam1$Population.code=="CEU") , "Sample.name"]
+ID_ASIE=fam1[which(fam1$Population.code=="JPT") , "Sample.name"]
+write.table(x = ID_EUROPE, "CEU.txt", row.names=F, col.names=F, quote=F)
+write.table(x = ID_ASIE, "JPT.txt", row.names=F, col.names=F, quote=F)
+```
+
+```{bash eval=FALSE, include=FALSE}
+DATA=http://hgdownload.cse.ucsc.edu/gbdb/hg19/1000Genomes/phase3/ALL.chr2.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+
+bcftools view --force-samples -r 2:134000000-138000000  --types snps -m2 -M2 -f PASS -S CEU.txt -o CEU_subset.vcf $DATA
+bcftools view --force-samples -r 2:134000000-138000000  --types snps -m2 -M2 -f PASS -S JPT.txt -o JPT_subset.vcf $DATA
+
+# on ne garde que le champ AA= dans la colonne info:
+cat  CEU_subset.vcf  |  sed -E 's/[[:graph:]]*(AA=[ACTG])[[:graph:]]*/\1/g' > CEU_subset2.vcf
+cat  JPT_subset.vcf  |  sed -E 's/[[:graph:]]*(AA=[ACTG])[[:graph:]]*/\1/g' > JPT_subset2.vcf
+mv CEU_subset2.vcf CEU_subset.vcf
+mv JPT_subset2.vcf JPT_subset.vcf
+
+bcftools stats CEU_subset.vcf
+bcftools stats JPT_subset.vcf
+```
+
+```{r eval=FALSE, include=FALSE}
+vcf_EUR=read.vcfR("CEU_subset.vcf")
+vcf_ASIE=read.vcfR("JPT_subset.vcf")
+```
+
+-   *Combien y a t-il de SNPs ?*
+
+        109770
+
+-   *Combien d'individus ?*
+
+    99
+
+```{r eval=FALSE, include=FALSE}
+my_genlight_EUR <- vcfR2genlight(vcf_EUR)
+my_genlight_ASIE <- vcfR2genlight(vcf_ASIE)
+
+frequ_EUROPE=glMean(my_genlight_EUR)
+frequ_ASIE=glMean(my_genlight_ASIE)
+```
+
+```{r eval=FALSE, include=FALSE}
+P=data.frame(my_genlight_EUR@position, frequ_EUROPE, frequ_ASIE)
+names(P)[1]="POS"
+head(P)
+# rs184977768 134000009    0.0000000 0.000000000 => locus monomorphe
+```
+
+**Lien entre** $f_{st}$ **et frequence allelique**: quand il y a pas de differenciation (memes frequences alleliques entre deux *loci*), le $f_{st}$ vaut zéro, par contre quand il y a une forte différenciation (frequences opposées) le $f_{st}$ vaut 1.
+
+```{r eval=FALSE, include=FALSE}
+# on enleve les loci ayant une frequence inferieure à 1%
+P2=P[-which(apply(P[,2:3], MARGIN = 1, FUN = mean)<0.01 | apply(P[,2:3], MARGIN = 1, FUN = mean)>0.99),]
+dim(P)
+dim(P2)
+
+# calcul du fst
+var=apply(P2[,2:3], MARGIN = 1, FUN=function(x){
+  v=1/2*var(x)
+  return(v)
+})
+
+mean=apply(P2[,2:3], 1, mean)
+Fst=var/(mean*(1-mean))
+P2=data.frame(P2, Fst)
+head(P2)
+# on passe de 109770 à 12858 loci
+```
+
+```{r eval=FALSE, include=FALSE}
+hist(P2$Fst, xlab="Fst")
+mean(P2$Fst) # 0.05575 significative mais peu de differenciation
+plot(x=P2$POS, P2$Fst, pch=".", cex=2, xlab="position on chr2")
+quantile_99=quantile(P2$Fst, 0.99)
+abline(h=quantile_99, col="red")
+```
+
+On remarque que dans certaines régions génomiques (entre 136 et 137Mb) il y a plus de diversification qu'attendu. Cela se traduit avec un effet de sélection. hypothèses:
+
+-   Événement de sélection d'un environnment chez les europeens;
+
+-   Événement de sélection d'un environnment chez les japonais;
+
+-   Chez les deux population.
+
+## 3. **Etude du desequilibre gamétique**
+
+```{r eval=FALSE, include=FALSE}
+library(SNPRelate)
+library(pegas)
+# conversion au format gds
+snpgdsVCF2GDS("JPT_subset.vcf", "chr2_JPT.gds")
+x <- snpgdsOpen("chr2_JPT.gds")
+
+# calcul des frequences alléliques
+fx <- snpgdsSNPRateFreq(x)
+str(fx)
+table(cut(fx$MinorFreq, 0:5/10)) # bcp de polymorphisme en baisse frequence
+```
+
+```{r eval=FALSE, include=FALSE}
+s <- which(fx$MinorFreq > 0.25)
+sel <- read.gdsn(index.gdsn(x, "snp.id"))[s]
+length(sel)
+```
+
+```{r eval=FALSE, include=FALSE}
+ld <- snpgdsLDMat(x, method = "dprime", snp.id = sel, slide = -1)
+pos <- read.gdsn(index.gdsn(x, "snp.position"))[s]
+
+showfile.gds(closeall=TRUE)
+```
+
+```{r eval=FALSE, include=FALSE}
+# matrice triangulaire de correlation qui represente l'intensite de desequilibre 
+LDmap(as.dist(abs(ld$LD)), pos/1e6, cex=0.8, scale.legend = 0.4, col = grey(9:0/9), main="LD for JPT")
+```
+
+Pour la population japonais, on remarque un forte deséquilibre de liaison à faible échelle. Ca nous dit que la recombinaison casse les deséquilibres de liaison entre *loci*. Entre deux pyramides on a les points chauds de recombinaison et une pyramide correspond a une bloque de *loci* qui sont transmit ensemble.
+
+Dans la population européenne on retrouve en gros bloque de *loci* qui nous permet de savoir qu'il y a eu un événement de sélection positif qui est present donc dans la population européenne et pas dans la japonaise. Dans ce bloque on retrouve le gène codant pour la *lactase* (*LCT*) et l'intron *MCM6* qui permettent de réguler l'expression de la lactase.

@@ -1,6 +1,6 @@
 ---
 title: "Structuration des populations"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -29,15 +29,15 @@ tail(data1)
 
 Chaque individu aura deux lignes, un par site.
 
-```{r}
+```{r include=FALSE}
 xtabs(~as.factor(indiv)+as.factor(pop),data=data1)
 ```
 
-Donnees d'un plan experimental hierarchique car le facteur *individu* est emboité dans le facteur *population*.\
-On fera une anova hierarchique de la variable *allele* en sachant que les autres deux variables (*indiv* et *pop*) sont emboitées.
+Données d'un plan experimental hiérarchique car le facteur *individu* est emboité dans le facteur *population*.\
+On fera une anova hiérarchique de la variable *allèle* en sachant que les autres deux variables (*indiv* et *pop*) sont emboitées.
 
 ```{r}
-model1= <- anova(lm(allele~as.factor(pop)/as.factor(indiv), 
+model1 <- anova(lm(allele~as.factor(pop)/as.factor(indiv), 
                     data=data1))
 model1
 ```
@@ -46,17 +46,18 @@ model1
 
 2.  Estimer les $F$
 
-    1.  $f_{it}$: combine le $f_{st}$ et le $f_{is}$ selon la relation suivante:\$1-f\_{it} = (1- f\_{st})(1 - f\_{is})\$
+    1.  $f_{it}$: combine le $f_{st}$ et le $f_{is}$ selon la relation suivante:\
+        $1-f_{it} = (1- f_{st})(1 - f_{is})$
 
-    2.  $f_{st}$: la composante de la variance au niveau de la population (renseigne sur la structuration genomique de la population), autrement dit il reinseigne sur les flux de genes entre populations;
+    2.  $f_{st}$: la composante de la variance au niveau de la population (renseigne sur la structuration génomique de la population), autrement dit il reinseigne sur les flux de gènes entre populations;
 
-        -   0, flux de genes important entre population et donc peu de structuration;
+        -   0, flux de genes important entre populations et donc peu de structuration;
 
-        -   plus est grande, plus les populations sont differentes (en termes de frequence allelique) et donc le flux des genes est faible;
+        -   plus est grande, plus les populations sont différentes (en termes de fréquence allelique) et donc le flux des gènes est faible;
 
     3.  $f_{is}$:
 
-        -   si valeur nulle, la panmixie est réalisé (appariement des gametes aux hasard)
+        -   si valeur nulle, la panmixie est réalisée (appariement des gamètes aux hasard).
 
 Pour faire cela on a besoin des carrés moyens de l'**anova** (colonne `Mean Sq`, qui est une estimation de $E(CM)$).
 
@@ -105,8 +106,8 @@ f_is <- calc.f(model2, "f_is")
 f_is
 ```
 
-f_is pres de zero, donc panmixie\
-f_st assez grand $\Rightarrow$ isolement par la distance
+$f_{is}$ près de zero, donc panmixie;\
+$f_{st}$ assez grand $\Rightarrow$ isolement par la distance.
 
 ```{r}
 model3 <- anova(lm(allele~as.factor(pop)/as.factor(indiv), 
@@ -119,12 +120,12 @@ f_is <- calc.f(model3, "f_is")
 f_is
 ```
 
-f_is tres grand, niveau de consaguinite tres elevé\
-f_st tres faible, donc beaucoup de flux de genes entre populations
+$f_{is}$ très grand, niveau de consaguinité très elevé;\
+$f_{st}$ très faible, donc beaucoup de flux de gènes entre populations.
 
 ## 2. Analyse du jeu de données du CEPH
 
-```{r}
+```{r include=FALSE}
 world <- read.table("ftp://pbil.univ-lyon1.fr/pub/cours/fablet/GGE/TP_AMOVA/diversitydata.stru", h=F, skip=1)
 world.locus <- read.table("ftp://pbil.univ-lyon1.fr/pub/cours/fablet/GGE/TP_AMOVA/diversitydata.stru", h=F, nrows=1)
 dim(world)
@@ -136,13 +137,13 @@ world[1:5,1:8]=
 world=world[,1:25]
 ```
 
-```{r}
+```{r include=FALSE}
 # le niveau individu est emboité dans Population
 # emboité da Geography
 summary(as.factor(world$Population)) # faut diviser par deux car il y a deux lignes par individu
 ```
 
-```{r}
+```{r include=FALSE}
 # emboité dans Region
 summary(as.factor(world$Geography))
 ```
@@ -151,7 +152,7 @@ summary(as.factor(world$Geography))
 summary(as.factor(world$Region))
 ```
 
-```{r}
+```{r include=FALSE}
 IdPops = unique(world[,3:5])
 IdPops = IdPops[order(IdPops$Population),]
 IdPops 
@@ -163,9 +164,9 @@ barplot(table(world[,6]))
 barplot(table(world[,7]))
 ```
 
-On constante beaucoup d'alleles differents, donc un taux de mutation $\mu$ elevé.
+On constante beaucoup d'allèles différents, donc un taux de mutation $\mu$ élevé.
 
-Pour un gene à deux alleles:
+Pour un gene à deux allèles:
 
 -   $p^2$ $2pq$ $q^2$
 
@@ -181,43 +182,43 @@ Hs = apply(world[6:25], 2, FUN = function(x) {
 hist(Hs) # sur l'ensemble des loci
 ```
 
-Niveau d'heterozygotie theorique (utilisé comme estimé de la diversité génétique) assz elevé.
+Niveau d'hétérozygotie théorique (utilisé comme estimé de la diversité génétique) assez elevé.
 
 ### Importation des données dans le package adegenet
 
-```{r}
+```{r include=FALSE}
 library(adegenet)
 ```
 
-```{r}
+```{r include=FALSE}
 worldadegenet <- import2genind("ftp://pbil.univ-lyon1.fr/pub/cours/fablet/GGE/TP_AMOVA/diversitydata.stru", n.ind=1056, n.loc=377, col.pop=3, col.other=c(4,5), ask=FALSE, NA.char="-9")
 worldadegenet
-# hist(worldadegenet$loc.n.all)
+hist(worldadegenet$loc.n.all)
 worldadegenet=worldadegenet[,1:sum(table(worldadegenet$loc.fac)[1:20])]
 summary(worldadegenet)
 ```
 
--   nombre d'individus
+-   nombre d'individus;
 
--   nb d'individus par populations
+-   nb d'individus par populations;
 
--   nb d'allele par locus
+-   nb d'allèle par *locus*;
 
--   nb d'allele par groupe
+-   nb d'allèle par groupe;
 
--   pourcentage des données manquantes
+-   pourcentage des données manquantes;
 
--   heterozygotie observée
+-   hétérozygotie observée;
 
--   heterozygotie theorique
+-   hétérozygotie théorique.
 
 ### Analyse de la structure: estimation des Fstats
 
-```{r}
+```{r include=FALSE}
 library(hierfstat)
 ```
 
-```{r}
+```{r include=FALSE}
 worldhier=genind2hierfstat(worldadegenet)
 
 varcomp.glob(levels=worldhier[,1],worldhier[,2:21])
@@ -231,7 +232,7 @@ Entre `Pop` et `Total` on a le $f_{st}$, entre `Ind` et `Total` on a le $f_{it}$
 
 -   $f_{is} \sim 0$ donc panmixie;
 
--   $f_{st}$ pas assez de puissance statistique pour voir si c'est different de zero ou pas.
+-   $f_{st}$ pas assez de puissance statistique pour voir si c'est different de zéro ou pas.
 
 ```{r}
 testFst <- test.g(data=worldhier[,2:21], level=worldhier[,1])
@@ -239,7 +240,7 @@ hist(testFst$g.star[1:99]) # distribution de la statistique sur 99 permutations
 testFst$g.star[100] # valeur observée sur les données
 ```
 
-La valeur observée sur les données est loin de la distribution nulle attendue, donc l'hypothese nulle est rejetée donc $f_{st}$ est signficativement different de zero (donc structuration entre les populations humaines significative).
+La valeur observée sur les données est loin de la distribution nulle attendue, donc l'hypothese nulle est rejetée donc $f_{st}$ est signficativement différent de zéro (donc structuration entre les populations humaines significative).
 
 ### Analyse de la structure: isolement par la distance
 
@@ -254,9 +255,9 @@ abline(lm(distGenet~distGeo))
 cor(distGenet,distGeo)^2
 ```
 
-Correlation positive assez claire entre distance geographique (en $km$ entre les deux populations) et distance genetique (exprimée en $f_{st}$).
+Correlation positive assez claire entre distance géographique (en $km$ entre les deux populations) et distance génétique (exprimée en $f_{st}$).
 
-```{r}
+```{r include=FALSE}
 library(ade4)
 ```
 
@@ -266,7 +267,7 @@ ibd
 plot(ibd)
 ```
 
-La valeurs observée est en dehors de la distribution nulle, donc on peut rejeter l'hypothese nulle est affirmer qu'il y a bien correlation entre distance geographique et genetique (le $f_{st}$ est significative en partie grace à l'isolement par la distance).
+La valeurs observée est en dehors de la distribution nulle, donc on peut réjeter l'hypothèse nulle est affirmer qu'il y a bien corrélation entre distance géographique et génétique (le $f_{st}$ est significative en partie grâce à l'isolement par la distance).
 
 ```{r}
 cor(distGenet, distGeo)^2
@@ -300,4 +301,4 @@ legend(0, 0.50, levels(as.factor(IdPops$Region)), col=levels(regions), pch=1)
 cor(as.numeric(Htheo[,2]), distancesAfr$DistAA)
 ```
 
-A partir de l'Afrique, un petit groupe d'indivdu qui a migré, et a partir de cela un nouveau groupe d'individu a migré $\Rightarrow$ **Effet fondateur en serie**. D'allieurs, il explique 80% de la variabilité.
+À partir de l'Afrique, un petit groupe d'indivdu qui a migré, et à partir de cela un nouveau groupe d'individu a migré $\Rightarrow$ **Effet fondateur en série**. D'ailleurs, il explique 80% de la variabilité.

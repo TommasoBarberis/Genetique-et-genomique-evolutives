@@ -1,6 +1,6 @@
 ---
 title: "Interactions durables, transferts horizontaux et domestication"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -11,7 +11,93 @@ adresse IP: <https://134.158.247.32/>\
 login: gge10\
 mdp: VMlbbe
 
-# Interactions durables, transferts horizontaux et domestication
+```{r eval=FALSE, include=FALSE}
+library(msa)
+# importer les sequences
+mySequence_file="~/TP_wasps/ORF27_prot.fa"
+mySequences=readAAStringSet(mySequence_file)
+mySequences
+
+# raccourcir les noms de sequences
+names=names(mySequences)
+split=strsplit(names, split="\\[")
+
+names(mySequences)=unlist(lapply(split, FUN = function(x){
+  length=length(x)
+  res=paste(x[length])
+  res=sub(pattern = "\\]", replacement = "", x = res)
+  return(res)
+}))
+
+# alignement
+myFirstAlignment <- msa(mySequences)
+# convert to ape format
+alnx=msaConvert(x = myFirstAlignment, type = "ape::AAbin")
+
+
+#phylogeny
+library(ape)
+
+## aln must contain aligned sequences (same length) in a fasta file.
+alnxdist <- dist.aa(alnx)
+trx <- nj(alnxdist)
+
+# bootstrap
+myBoots<-boot.phylo(trx, FUN = function(xx) nj(dist.aa(xx)), alnx)
+
+# plot phylogeny
+ape::plot.phylo(trx, align.tip.label = T)
+nodelabels(myBoots, adj = 0.7, cex=0.7, frame = "none", col = "red")
+
+
+
+# importer les sequences
+mySequence_file="~/TP_wasps/ORF85_prot.fa"
+mySequences=readAAStringSet(mySequence_file)
+mySequences
+
+# raccourcir les noms de sequences
+names=names(mySequences)
+split=strsplit(names, split="\\[")
+
+names(mySequences)=unlist(lapply(split, FUN = function(x){
+  length=length(x)
+  res=paste(x[length])
+  res=sub(pattern = "\\]", replacement = "", x = res)
+  return(res)
+}))
+
+# alignement
+myFirstAlignment <- msa(mySequences)
+# convert to ape format
+alnx=msaConvert(x = myFirstAlignment, type = "ape::AAbin")
+
+
+#phylogeny
+
+## aln must contain aligned sequences (same length) in a fasta file.
+alnxdist <- dist.aa(alnx)
+trx <- nj(alnxdist)
+
+# bootstrap
+myBoots<-boot.phylo(trx, FUN = function(xx) nj(dist.aa(xx)), alnx)
+
+# plot phylogeny
+ape::plot.phylo(trx, align.tip.label = T)
+nodelabels(myBoots, adj = 0.7, cex=0.7, frame = "none", col = "red")
+
+
+
+# importer les sequences
+mySequence_file="~/TP_wasps/ORF85_CDS.fa"
+mySequences=readDNAStringSet(mySequence_file)
+mySequences
+
+library(DECIPHER)
+CDS_aln <- AlignTranslation(mySequences) # align the translation, then reverse translate
+
+dnds(x = as.DNAbin(CDS_aln))
+```
 
 Chez cette espece de guepe, selon le phenotype, les individus femelles on un comportament different dans le depot d'oeufs dans les larves de la *Drosophila*. Le phenotype **NS** pond un seul oeuf alors que le phenotype **S** pond plusieurs oeufs au sein d'une seule larve.\
 Ce phenotype est transmis uniquement par via maternelle, comme si c'etait du au genome mitochondriale. L'hypothese de la transmission mitochondriale du caractere est tombée à l'eau assez vite.

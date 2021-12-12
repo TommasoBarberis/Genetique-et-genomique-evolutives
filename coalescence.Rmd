@@ -1,0 +1,330 @@
+---
+title: "coalescence"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Coalescence - estimateurs de $\theta$
+
+```{r}
+library('coala')
+library('ape')
+```
+
+## 1. Ecrire un modèle de coalescence
+
+En [génétique](https://fr.wikipedia.org/wiki/G%C3%A9n%C3%A9tique "Génétique"), la **théorie du coalescent** est un modèle rétrospectif de [génétique des populations](https://fr.wikipedia.org/wiki/G%C3%A9n%C3%A9tique_des_populations "Génétique des populations"). Son objectif est de suivre l'évolution de tous les [allèles](https://fr.wikipedia.org/wiki/All%C3%A8les "Allèles") d'un [gène](https://fr.wikipedia.org/wiki/G%C3%A8ne "Gène") donné de tous les individus d'une population, jusqu'à une seule copie ancestrale, appelée [ancêtre commun le plus récent](https://fr.wikipedia.org/wiki/Dernier_anc%C3%AAtre_commun "Dernier ancêtre commun").\
+Les relations d'hérédité entre les allèles sont représentées sous la forme d'un arbre similaire à un [arbre phylogénétique](https://fr.wikipedia.org/wiki/Arbre_phylog%C3%A9n%C3%A9tique "Arbre phylogénétique"). Cet arbre est aussi appelé *coalescent*, et la compréhension des propriétés statistiques du coalescent sous différentes hypothèses forme la base de la théorie du coalescent.
+
+source: [Wikipedia - théorie du coalescent](https://fr.wikipedia.org/wiki/Th%C3%A9orie_du_coalescent)
+
+La commande suivante permet de créer un modèle coalescent pour échantillonner 10 lignées d'un seul *locus* de 1000 nucléotide:
+
+```{r}
+model_coal <- coal_model(sample_size=10, loci_number=1, loci_length=1000) 
+```
+
+Le modèle de coalescence depend entre autre de la démographie de la population, par exemple si une population est en décroissance, ca va prendre de plus en plus de temps pour retrouver l'ancêtre commun.
+
+La commande suivante permet de dire quand veut modifier la croissance de la population et quand on veut l'arrêter.
+
+```{r}
+model_coal <- model_coal + feat_growth(rate=log(20), time=0) + feat_growth(rate=0, time=1) 
+# time = 0 => present
+# time = 1 => multiplication fois 20, car croissance exponentielle
+```
+
+On rajoute un taux de mutation:
+
+```{r}
+model_coal <- model_coal + feat_mutation(rate=10)
+```
+
+On definie également ce qu'on veut en sortie (définition des statitiques):
+
+```{r}
+model_coal <- model_coal + sumstat_trees() + sumstat_seg_sites() + sumstat_sfs()
+# sumstat_trees: arbres paranthesés (format Newick)
+# sumstat_seg_sites: les mutations -> matrice des sites segreagents
+# sumstat_sfs: spectres de frequence (nb des fois qu'on observe les sommes des etats derivés pour chaque position)
+```
+
+```{r}
+result <- simulate(model_coal, nsim=9)
+```
+
+```{r}
+print(model_coal)
+```
+
+```{r}
+coatrees <- sapply(result, function(x) x[['trees']])
+sfs <- sapply(result, function(x) x[['sfs']])
+segsites <- sapply(result, function(x) x[['seg_sites']])
+```
+
+### 1.1 Plot de l'arbre de coalescence
+
+```{r}
+plottextcoal <- function(x) {
+  tree <- read.tree(text=x)
+  plot.phylo(tree, direction="downwards")
+  axisPhylo(side=2)
+}
+```
+
+```{r}
+par(mfrow=c(3,3))
+sapply(coatrees, plottextcoal)
+```
+
+Arbres du modèle avec une population de taille en expansion, il faut maintenant comparer avec un population de taille de constante au cours du temps.
+
+```{r}
+model_coal_cst <- coal_model(sample_size=10, loci_number=1, loci_length=1000)
+model_coal_cst <- model_coal_cst + feat_growth(rate=0, time=0) + feat_growth(rate=0, time=1)
+model_coal_cst <- model_coal_cst + feat_mutation(rate=10)
+model_coal_cst <- model_coal_cst + sumstat_trees() + sumstat_seg_sites() + sumstat_sfs()
+result_cst <- simulate(model_coal_cst, nsim=9)
+coatrees_cst <- sapply(result_cst, function(x) x[['trees']])
+sfs_cst <- sapply(result_cst, function(x) x[['sfs']])
+segsites_cst <- sapply(result_cst, function(x) x[['seg_sites']])
+
+par(mfrow=c(3,3))
+sapply(coatrees_cst, plottextcoal)
+```
+
+Avec une croissance nulle, les temps de divergence pour la coalescence augmentent.
+
+## 2. Spectres des fréquences des sites
+
+```{r}
+wfmodel <- coal_model(sample_size=50, loci_number=5000) +
+feat_mutation(rate=10) +
+sumstat_sfs()
+wfresult <- simulate(wfmodel, nsim=1)
+plot(x=1:49, y=wfresult[["sfs"]], main=NULL,
+xlab="Derived allele frequency", ylab="Count",
+col="black")
+theoreticalsfs <- 50000/(1:49)
+points(x=1:49, y=theoreticalsfs, lwd=2, col="darkgreen", type="l")
+```
+
+### Modèles alternatifs
+
+```{r}
+pgmodel <- wfmodel + feat_growth(rate=log(20), time=0) + feat_growth(rate=0, time=1)
+bnmodel<- wfmodel + feat_size_change(new_size=0.02, time=0.05) +
+feat_size_change(new_size=1, time=0.06)
+stmodel <- coal_model(sample_size=c(25,25), loci_number=5000) +
+feat_mutation(rate=10) +
+feat_size_change(new_size=0.5, population="all", time=0) +
+feat_migration(rate = 0.5, symmetric = TRUE) +
+feat_pop_merge(time=5, pop_source=2, pop_target=1) +
+feat_size_change(new_size=1, population=1, time=5) +
+sumstat_sfs()
+```
+
+```{r}
+par(mfrow=c(1,2))
+pgresult <- simulate(pgmodel, nsim=1)
+bnresult <- simulate(bnmodel, nsim=1)
+stresult <- simulate(stmodel, nsim=1)
+plot(x=1:49, y=wfresult[["sfs"]], main="Site frequency spectrum (n=50)",
+xlab="Derived allele frequency", ylab="Count", col="black")
+points(x=1:49, y=pgresult[["sfs"]], col="darkgreen")
+points(x=1:49, y=bnresult[["sfs"]], col="red")
+points(x=1:49, y=stresult[["sfs"]], col="blue")
+legend("topright", col=c("blue", "black", "darkgreen", "red"), pch=1,
+legend=c("population structure", "neutral WF", "exponential growth", "bottleneck"))
+nsfspg <- pgresult[["sfs"]]/sum(pgresult[["sfs"]])
+nsfswf <- wfresult[["sfs"]]/sum(wfresult[["sfs"]])
+nsfsbn <- bnresult[["sfs"]]/sum(bnresult[["sfs"]])
+nsfsst <- stresult[["sfs"]]/sum(stresult[["sfs"]])
+plot(x=1:49, y=nsfswf, main="Normalized SFS (n=50)",
+xlab="Derived allele frequency", ylab="Rel. freq.", col="black", type="l", lwd=2)
+points(x=1:49, y=nsfspg, col="darkgreen", type="l", lwd=2)
+points(x=1:49, y=nsfsbn, col="red", type="l", lwd=2)
+points(x=1:49, y=nsfsst, col="blue", type="l", lwd=2)
+legend("topright", col=c("blue", "black", "darkgreen", "red"), lwd=2,
+legend=c("population structure", "neutral WF", "exponential growth", "bottleneck"))
+```
+
+Le pic sur la courbe de la population structurée est dû aux longues branches caractéristiques de ce modèle démographique (plus la branche est longue plus il y a probabilité d'avoir une mutation sur celle-ci).
+
+## 3. Estimation de $\theta$ basée sur le spectre des frequences des sites
+
+$\hat{\theta_w}=\frac{S_n}{\sum\limits_{i=1}^{n-1}\frac{1}{i}}$
+
+```{r}
+theta.w <- function(sfs) {
+n <- length(sfs)+1
+w <- 1/sum(1/(1:(n-1))) # w: weight
+return(sum(sfs*w))
+}
+```
+
+```{r}
+wfmodel <- model <- coal_model(sample_size=20, loci_number=1) +
+feat_mutation(rate=10) + sumstat_sfs()
+wfresult <- simulate(wfmodel)
+wfsfs <- wfresult[["sfs"]]
+```
+
+```{r}
+S <- sum(wfsfs)
+a <- sum( 1/ (1:19) )
+S/a
+```
+
+```{r}
+theta.w(wfsfs)
+```
+
+```{r}
+wfresult <- simulate(wfmodel, nsim=5)
+sapply(wfresult, function(x) theta.w(x[["sfs"]]))
+```
+
+```{r}
+wfmodel <- wfmodel + sumstat_sfs(name="theta_w", transformation=theta.w)
+wfresult <- simulate(wfmodel, nsim=5)
+```
+
+```{r}
+sapply(wfresult, function(x) x[["theta_w"]])
+sapply(wfresult, function(x) theta.w(x[["sfs"]]))
+```
+
+```{r}
+theta.pi <- function(sfs) {
+n <- length(sfs)+1
+w <- (1:(n-1))*rev(1:(n-1))*2/n/(n-1)
+return(sum(sfs*w))
+}
+theta.h <- function(sfs) {
+n <- length(sfs)+1
+w <- (1:length(sfs))^2*2/length(sfs)/(1+length(sfs))
+return(sum(sfs*w))
+}
+theta.f <- function(sfs) {
+return(sfs[1])
+}
+```
+
+```{r}
+theta.w(wfsfs)
+theta.pi(wfsfs)
+theta.h(wfsfs)
+theta.f(wfsfs)
+```
+
+```{r}
+wfmodel <- coal_model(sample_size=20, loci_number=1) +
+feat_mutation(rate=10) +
+sumstat_sfs(name='theta_w', transformation=theta.w)
+wfresults <- simulate(wfmodel, nsim=10000)
+wftheta_w <- sapply(wfresults, function(x) x[["theta_w"]])
+hist(wftheta_w, main=NULL, xlab=expression(hat(theta)[w]), nclass=50, xlim=c(0,35), freq=FALSE)
+points(density(wftheta_w, from=0, to=35), col="red", lwd=2, type="l")
+abline(v=mean(wftheta_w), lwd=2, lty=2, col="red")
+```
+
+```{r}
+wfmodel <- coal_model(sample_size=20, loci_number=1) +
+feat_mutation(rate=10) +
+sumstat_sfs(name='theta_pi', transformation=theta.pi) +
+sumstat_sfs(name='theta_w', transformation=theta.w) +
+sumstat_sfs(name='theta_h', transformation=theta.h) +
+sumstat_sfs(name='theta_f', transformation=theta.f)
+wfresults <- simulate(wfmodel, nsim=10000)
+wftheta_w <- sapply(wfresults, function(x) x[["theta_w"]])
+wftheta_pi <- sapply(wfresults, function(x) x[["theta_pi"]])
+wftheta_h <- sapply(wfresults, function(x) x[["theta_h"]])
+wftheta_f <- sapply(wfresults, function(x) x[["theta_f"]])
+plot(density(wftheta_w, from=0, to=200),
+main="Distribution of the estimators of "~hat(theta)~" (neutral coalescent)",
+type="l", lwd=2, col="red", xlim=c(0,35), xlab=expression(hat(theta)))
+points(density(wftheta_h, from=0, to=200), lwd=2, type="l", col="blue")
+points(density(wftheta_pi, from=0, to=200), lwd=2, type="l", col="darkgreen")
+points(density(wftheta_f, from=0, to=200), lwd=2, type="l", col="brown")
+mu_w <- mean(wftheta_w)
+mu_pi <- mean(wftheta_pi)
+mu_h <- mean(wftheta_h)
+mu_f <- mean(wftheta_f)
+abline(v=c(mu_pi, mu_w, mu_h, mu_f), col=c("red", "blue", "darkgreen", "brown"),
+lwd=2, lty=2)
+legend('topright', col=c("red", "blue", "darkgreen", "brown", "gray"), lwd=2,
+lty=c(1,1,1,1,2), legend=c(expression(hat(theta)[w]),
+expression(hat(theta)[eta]), expression(hat(theta)[pi]),
+expression(hat(theta)[f]), "mean") )
+```
+
+Les 4 estimateurs sous le modele de WF sont non biaisés. La variance de $\hat{\theta}_w$ est la plus faible donc il parait etre l'estimateur le plus judicieux.
+
+```{r}
+summary(wftheta_w)
+t.test(wftheta_w, mu=10)
+```
+
+```{r}
+var(wftheta_w)
+var(wftheta_pi)
+var(wftheta_f)
+var(wftheta_h)
+var.test(wftheta_w, wftheta_pi)
+```
+
+### Effets des differents modèles demographiques sur les estimateurs
+
+```{r}
+pgmodel <- wfmodel + feat_growth(rate=log(20), time=0) + feat_growth(rate=0, time=1)
+bnmodel<- wfmodel + feat_size_change(new_size=0.02, time=0.05) +
+feat_size_change(new_size=1, time=0.06)
+stmodel <- coal_model(sample_size=c(10,10), loci_number=1) +
+feat_mutation(rate=10) +
+feat_size_change(new_size=0.5, population="all", time=0) +
+feat_migration(rate = 0.5, symmetric = TRUE) +
+feat_pop_merge(time=5, pop_source=2, pop_target=1) +
+feat_size_change(new_size=1, population=1, time=5) +
+sumstat_sfs(name='theta_pi', transformation=theta.pi) +
+sumstat_sfs(name='theta_w', transformation=theta.w) +
+sumstat_sfs(name='theta_h', transformation=theta.h) +
+sumstat_sfs(name='theta_f', transformation=theta.f)
+```
+
+```{r}
+plotestimatordensities <- function(model, nsim, main="Distribution of the estimators of "~hat(theta)) {
+result <- simulate(model, nsim=nsim)
+theta_w <- sapply(result, function(x) x[["theta_w"]])
+theta_pi <- sapply(result, function(x) x[["theta_pi"]])
+theta_h <- sapply(result, function(x) x[["theta_h"]])
+theta_f <- sapply(result, function(x) x[["theta_f"]])
+xM <- quantile(x=c(theta_w,theta_pi, theta_h, theta_f), 0.95)
+yM <- dnorm(x=0, sd=0.2*max(c(sd(theta_w), sd(theta_pi), sd(theta_h), sd(theta_f))))
+mu_w <- mean(theta_w)
+mu_pi <- mean(theta_pi)
+mu_h <- mean(theta_h)
+mu_f <- mean(theta_f)
+plot(density(theta_w, from=0, to=200),
+main=main,
+type="l", lwd=2, col="red", xlim=c(0,xM), ylim=c(0,yM), xlab=expression(hat(theta)))
+points(density(theta_h, from=0, to=200), lwd=2, type="l", col="blue")
+points(density(theta_pi, from=0, to=200), lwd=2, type="l", col="darkgreen")
+points(density(theta_f, from=0, to=200), lwd=2, type="l", col="brown")
+abline(v=c(mu_w, mu_h, mu_pi, mu_f), col=c("red", "blue", "darkgreen", "brown"),
+lwd=2, lty=2)
+legend('topright', col=c("red", "blue", "darkgreen", "brown", "gray"), lwd=2,
+lty=c(1,1,1,1,2), legend=c(expression(hat(theta)[w]),
+expression(hat(theta)[eta]), expression(hat(theta)[pi]),
+expression(hat(theta)[f]), "mean") )
+}
+par(mfrow=c(2,2))
+plotestimatordensities(model=wfmodel, nsim=5000, main="Wright-Fisher model")
+plotestimatordensities(model=bnmodel, nsim=5000, main="Bottleneck model")
+plotestimatordensities(model=pgmodel, nsim=5000, main="Population expansion model")
+plotestimatordensities(model=stmodel, nsim=5000, main="Population structure")
+```
